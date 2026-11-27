@@ -10,6 +10,15 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Version check failed.' }
     Write-Host 'Private version metadata checked.'
 
+    $buildScript = Join-Path $source 'build_windows.ps1'
+    $buildText = Get-Content -LiteralPath $buildScript -Raw
+    $testCommand = '-m unittest discover -s '
+    if (-not $buildText.Contains($testCommand)) {
+        throw 'Private test command could not be instrumented safely.'
+    }
+    $buildText = $buildText.Replace($testCommand, '-m unittest discover -v -s ')
+    [IO.File]::WriteAllText($buildScript, $buildText, [Text.UTF8Encoding]::new($false))
+
     $runner = (Get-Command pwsh -ErrorAction Stop).Source
     $process = Start-Process -FilePath $runner `
         -ArgumentList @('-NoProfile', '-NonInteractive', '-File', '.\build_windows.ps1',
@@ -40,7 +49,32 @@ try {
                 $stage = 'checking application launch or finalizing package'
             }
         }
-        Write-Host "Private build still running ($minutes minute(s)); stage: $stage; output withheld."
+        $completedTests = 0
+        try {
+            if (Test-Path -LiteralPath $errorLog) {
+                $testOutput = Get-Content -LiteralPath $errorLog -Raw -ErrorAction Stop
+                $completedTests = [regex]::Matches($testOutput, '(?m)^test_[^\r\n]+ \.\.\. (?:ok|skipped[^\r\n]*)
+    }
+    $process.Refresh()
+    if ($process.ExitCode -ne 0) { throw 'Private build or tests failed.' }
+    Write-Host 'Private build and tests completed.'
+
+    & python tools/release_notes.py "release/$Tag/release-notes.md" *> $buildLog
+    if ($LASTEXITCODE -ne 0) { throw 'Release notes preparation failed.' }
+}
+catch {
+    throw 'Private source build or tests failed. Output is withheld from public logs.'
+}
+finally {
+    Pop-Location
+    Remove-Item -LiteralPath $buildLog, $errorLog -ErrorAction SilentlyContinue
+}
+).Count
+            }
+        } catch {
+            $completedTests = 0
+        }
+        Write-Host "Private build still running ($minutes minute(s)); stage: $stage; completed tests: $completedTests; output withheld."
     }
     $process.Refresh()
     if ($process.ExitCode -ne 0) { throw 'Private build or tests failed.' }
