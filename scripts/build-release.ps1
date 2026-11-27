@@ -50,15 +50,23 @@ try {
             }
         }
         $completedTests = 0
+        $diagnosticBytes = 0
         try {
             if (Test-Path -LiteralPath $errorLog) {
-                $testOutput = Get-Content -LiteralPath $errorLog -Raw -ErrorAction Stop
-                $completedTests = [regex]::Matches($testOutput, '(?m)^test_[^\r\n]+ \.\.\. (?:ok|skipped[^\r\n]*)$').Count
+                $stream = [IO.File]::Open($errorLog, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+                try {
+                    $diagnosticBytes = $stream.Length
+                    $reader = [IO.StreamReader]::new($stream)
+                    $testOutput = $reader.ReadToEnd()
+                    $completedTests = [regex]::Matches($testOutput, '(?m)^test_[^\r\n]+ \.\.\. (?:ok|skipped[^\r\n]*)$').Count
+                } finally {
+                    if ($reader) { $reader.Dispose() } else { $stream.Dispose() }
+                }
             }
         } catch {
             $completedTests = 0
         }
-        Write-Host "Private build still running ($minutes minute(s)); stage: $stage; completed tests: $completedTests; output withheld."
+        Write-Host "Private build still running ($minutes minute(s)); stage: $stage; completed tests: $completedTests; diagnostic bytes: $diagnosticBytes; output withheld."
     }
     $process.Refresh()
     if ($process.ExitCode -ne 0) { throw 'Private build or tests failed.' }
