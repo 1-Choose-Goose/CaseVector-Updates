@@ -1,7 +1,12 @@
 $ErrorActionPreference = 'Stop'
 $source = Join-Path $env:GITHUB_WORKSPACE 'private-source'
-$tag = (& git -C $source tag --list 'v[0-9]*' --sort=-version:refname | Select-Object -First 1).Trim()
-if ($LASTEXITCODE -ne 0 -or $tag -notmatch '^v\d+\.\d+\.\d+$') {
+$tags = @(& git -C $source tag --list 'v[0-9]*' --sort=-version:refname)
+if ($LASTEXITCODE -ne 0 -or $tags.Count -eq 0) {
+    throw 'Private source tags could not be listed.'
+}
+$tag = [string]$tags[0]
+Write-Host "Latest source tag candidate: $tag"
+if ($tag -notmatch '^v\d+\.\d+\.\d+$') {
     throw 'No valid private source release tag was found.'
 }
 & git -C $source merge-base --is-ancestor $tag 'origin/main'
