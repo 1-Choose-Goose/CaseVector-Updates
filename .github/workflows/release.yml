@@ -3,7 +3,8 @@ name: Publish signed CaseVector update
 on:
   workflow_dispatch:
   schedule:
-    - cron: '37 * * * *'
+    - cron: '37 */6 * * *'
+    - cron: '17 4 1 * *'
 
 permissions:
   contents: write
@@ -78,3 +79,26 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/publish-release.ps1 -Tag '${{ steps.version.outputs.tag }}'
+
+  keep-schedule-active:
+    # GitHub disables scheduled workflows in inactive public repositories after 60 days.
+    if: github.actor == '1-Choose-Goose' && github.ref == 'refs/heads/main' && github.event.schedule == '17 4 1 * *'
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Keep public release repository active without adding source
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $repo = 'repos/1-Choose-Goose/CaseVector-Updates'
+          $head = (& gh api "$repo/git/ref/heads/main" | ConvertFrom-Json).object.sha
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot read public branch.' }
+          $tree = (& gh api "$repo/git/commits/$head" | ConvertFrom-Json).tree.sha
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot read public commit.' }
+          $body = @{message='Keep scheduled releases active';tree=$tree;parents=@($head)} | ConvertTo-Json -Compress
+          $commit = ($body | gh api -X POST "$repo/git/commits" --input - | ConvertFrom-Json).sha
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot create public heartbeat commit.' }
+          $update = @{sha=$commit;force=$false} | ConvertTo-Json -Compress
+          $update | gh api -X PATCH "$repo/git/refs/heads/main" --input - | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot update public branch.' }
