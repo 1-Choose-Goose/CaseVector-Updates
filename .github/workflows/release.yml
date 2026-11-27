@@ -1,0 +1,80 @@
+name: Publish signed CaseVector update
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '37 * * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: casevector-public-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # Secrets are never exposed to pull_request or push workflows.
+    if: github.actor == '1-Choose-Goose' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check required secrets
+        shell: pwsh
+        env:
+          SOURCE_TOKEN: ${{ secrets.CASEVECTOR_SOURCE_READ_TOKEN }}
+          SIGNING_KEY: ${{ secrets.CASEVECTOR_ED25519_PRIVATE_KEY }}
+        run: |
+          if (-not $env:SOURCE_TOKEN -or -not $env:SIGNING_KEY) {
+            throw 'Required repository secrets are missing. See README.md.'
+          }
+
+      - name: Check out public release automation
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check out private source
+        uses: actions/checkout@v4
+        with:
+          repository: 1-Choose-Goose/FSIN-Navigator-Pro
+          token: ${{ secrets.CASEVECTOR_SOURCE_READ_TOKEN }}
+          persist-credentials: false
+          fetch-depth: 0
+          path: private-source
+
+      - name: Select trusted version tag
+        id: version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/select-release.ps1
+
+      - name: Set up Python 3.8 for Windows 7 builds
+        if: steps.version.outputs.publish == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+
+      - name: Test, build and sign without publishing logs
+        if: steps.version.outputs.publish == 'true'
+        shell: pwsh
+        env:
+          CASEVECTOR_ED25519_PRIVATE_KEY: ${{ secrets.CASEVECTOR_ED25519_PRIVATE_KEY }}
+        run: ./scripts/build-release.ps1 -Tag '${{ steps.version.outputs.tag }}'
+
+      - name: Verify package, digest and pinned signing key
+        if: steps.version.outputs.publish == 'true'
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check cryptography==42.0.7 *> $env:RUNNER_TEMP\casevector-verify-install.log
+          if ($LASTEXITCODE -ne 0) { throw 'Verification dependency installation failed.' }
+          python scripts/verify-release.py "private-source/release/${{ steps.version.outputs.tag }}" '${{ steps.version.outputs.tag }}'
+          if ($LASTEXITCODE -ne 0) { throw 'Release verification failed.' }
+
+      - name: Publish directly to the existing update channel
+        if: steps.version.outputs.publish == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/publish-release.ps1 -Tag '${{ steps.version.outputs.tag }}'
