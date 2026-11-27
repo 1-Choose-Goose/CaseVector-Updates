@@ -10,19 +10,21 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Version check failed.' }
     Write-Host 'Private version metadata checked.'
 
-    $buildScript = Join-Path $source 'build_windows.ps1'
-    $buildText = Get-Content -LiteralPath $buildScript -Raw
-    $testCommand = '-m unittest discover -s '
-    if (-not $buildText.Contains($testCommand)) {
-        throw 'Private test command could not be instrumented safely.'
-    }
-    $buildText = $buildText.Replace($testCommand, '-m unittest discover -v -s ')
-    [IO.File]::WriteAllText($buildScript, $buildText, [Text.UTF8Encoding]::new($false))
+    & python -m pip install --disable-pip-version-check --only-binary=:all: -r (Join-Path $source 'requirements.txt') *> $buildLog
+    if ($LASTEXITCODE -ne 0) { throw 'Headless test dependencies failed.' }
+    & python -m unittest -q `
+        tests.test_updates.UpdateTests.test_install_and_rollback_preserve_old_binary_and_data `
+        tests.test_updates.UpdateTests.test_release_check_selects_highest_version_not_first_release `
+        tests.test_updates.UpdateTests.test_signed_package_rejects_tampering_and_wrong_architecture `
+        tests.test_probe_match `
+        tests.test_database_merge *> $buildLog
+    if ($LASTEXITCODE -ne 0) { throw 'Headless release tests failed.' }
+    Write-Host 'Headless release tests completed.'
 
     $runner = (Get-Command pwsh -ErrorAction Stop).Source
     $process = Start-Process -FilePath $runner `
         -ArgumentList @('-NoProfile', '-NonInteractive', '-File', '.\build_windows.ps1',
-                        '-SkipInstaller', '-CreateUpdateArchive') `
+                        '-SkipInstaller', '-SkipTests', '-CreateUpdateArchive') `
         -WorkingDirectory $source -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $buildLog -RedirectStandardError $errorLog
     $minutes = 0
@@ -49,24 +51,7 @@ try {
                 $stage = 'checking application launch or finalizing package'
             }
         }
-        $completedTests = 0
-        $diagnosticBytes = 0
-        try {
-            if (Test-Path -LiteralPath $errorLog) {
-                $stream = [IO.File]::Open($errorLog, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
-                try {
-                    $diagnosticBytes = $stream.Length
-                    $reader = [IO.StreamReader]::new($stream)
-                    $testOutput = $reader.ReadToEnd()
-                    $completedTests = [regex]::Matches($testOutput, '(?m)^test_[^\r\n]+ \.\.\. (?:ok|skipped[^\r\n]*)$').Count
-                } finally {
-                    if ($reader) { $reader.Dispose() } else { $stream.Dispose() }
-                }
-            }
-        } catch {
-            $completedTests = 0
-        }
-        Write-Host "Private build still running ($minutes minute(s)); stage: $stage; completed tests: $completedTests; diagnostic bytes: $diagnosticBytes; output withheld."
+        Write-Host "Private build still running ($minutes minute(s)); stage: $stage; output withheld."
     }
     $process.Refresh()
     if ($process.ExitCode -ne 0) { throw 'Private build or tests failed.' }
