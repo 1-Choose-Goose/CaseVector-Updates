@@ -19,7 +19,21 @@ try {
     $minutes = 0
     while (-not $process.WaitForExit(60000)) {
         $minutes++
-        Write-Host "Private build still running ($minutes minute(s)); output withheld."
+        $stage = 'preparing dependencies or running tests'
+        $buildRoots = @(Get-ChildItem -LiteralPath $env:TEMP -Directory -Filter 'casevector-build-*' -ErrorAction SilentlyContinue)
+        if ($buildRoots.Count -gt 0) {
+            $buildRoot = $buildRoots | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if (Test-Path -LiteralPath (Join-Path $buildRoot.FullName 'work\updater')) {
+                $stage = 'packaging updater'
+            }
+            if (Test-Path -LiteralPath (Join-Path $buildRoot.FullName 'work\application')) {
+                $stage = 'packaging application'
+            }
+            if (Test-Path -LiteralPath (Join-Path $buildRoot.FullName 'smoke-app')) {
+                $stage = 'checking application launch or finalizing package'
+            }
+        }
+        Write-Host "Private build still running ($minutes minute(s)); stage: $stage; output withheld."
     }
     $process.Refresh()
     if ($process.ExitCode -ne 0) { throw 'Private build or tests failed.' }
