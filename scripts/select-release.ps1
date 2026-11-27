@@ -34,3 +34,4 @@ if ($LASTEXITCODE -eq 0) {
 "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 "publish=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 Write-Host "Selected private source tag $tag."
+exit 0
