@@ -12,12 +12,13 @@ try {
 
     & python -m pip install --disable-pip-version-check --only-binary=:all: -r (Join-Path $source 'requirements.txt') *> $buildLog
     if ($LASTEXITCODE -ne 0) { throw 'Headless test dependencies failed.' }
+    $env:PYTHONPATH = "$source;$source\tests"
     & python -m unittest -q `
-        tests.test_updates.UpdateTests.test_install_and_rollback_preserve_old_binary_and_data `
-        tests.test_updates.UpdateTests.test_release_check_selects_highest_version_not_first_release `
-        tests.test_updates.UpdateTests.test_signed_package_rejects_tampering_and_wrong_architecture `
-        tests.test_probe_match `
-        tests.test_database_merge *> $buildLog
+        test_updates.UpdateTests.test_install_and_rollback_preserve_old_binary_and_data `
+        test_updates.UpdateTests.test_release_check_selects_highest_version_not_first_release `
+        test_updates.UpdateTests.test_signed_package_rejects_tampering_and_wrong_architecture `
+        test_probe_match `
+        test_database_merge *> $buildLog
     if ($LASTEXITCODE -ne 0) { throw 'Headless release tests failed.' }
     Write-Host 'Headless release tests completed.'
 
