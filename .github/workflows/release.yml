@@ -23,10 +23,10 @@ jobs:
       - name: Check required secrets
         shell: pwsh
         env:
-          SOURCE_TOKEN: ${{ secrets.CASEVECTOR_SOURCE_READ_TOKEN }}
+          SOURCE_KEY: ${{ secrets.CASEVECTOR_SOURCE_DEPLOY_KEY }}
           SIGNING_KEY: ${{ secrets.CASEVECTOR_ED25519_PRIVATE_KEY }}
         run: |
-          if (-not $env:SOURCE_TOKEN -or -not $env:SIGNING_KEY) {
+          if (-not $env:SOURCE_KEY -or -not $env:SIGNING_KEY) {
             throw 'Required repository secrets are missing. See README.md.'
           }
 
@@ -39,7 +39,8 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: 1-Choose-Goose/FSIN-Navigator-Pro
-          token: ${{ secrets.CASEVECTOR_SOURCE_READ_TOKEN }}
+          ssh-key: ${{ secrets.CASEVECTOR_SOURCE_DEPLOY_KEY }}
+          ssh-strict: true
           persist-credentials: false
           fetch-depth: 0
           path: private-source
