@@ -9,8 +9,10 @@ The [release workflow](.github/workflows/release.yml) runs on standard GitHub ho
 The owner must set two **Actions repository secrets** in this public repository:
 
 1. `CASEVECTOR_SOURCE_READ_TOKEN`: a fine-grained personal access token owned by `1-Choose-Goose`, with access to **only** `FSIN-Navigator-Pro` and repository **Contents: Read-only** permission. Create it at [GitHub personal access tokens](https://github.com/settings/personal-access-tokens/new). Choose no expiration if GitHub permits it and unattended releases are required; otherwise renew the token before it expires.
-2. `CASEVECTOR_ED25519_PRIVATE_KEY`: the **existing** signing key value used for v1.2.8, unchanged. GitHub does not reveal the value of an existing Actions secret, so use the original secure copy. Do not generate a replacement.
+2. `CASEVECTOR_ED25519_PRIVATE_KEY`: the new signing key generated for v1.2.9. Its public key is pinned in the release verifier and the application. The private value must never be committed.
 
 Add both values at [CaseVector-Updates Actions secrets](https://github.com/1-Choose-Goose/CaseVector-Updates/settings/secrets/actions/new). Never add them to a file, issue, commit, workflow input, log, or chat. The workflow checks that the signing key matches the existing public trust key before it publishes anything.
 
 Once both secrets exist, start [Publish signed CaseVector update](https://github.com/1-Choose-Goose/CaseVector-Updates/actions/workflows/release.yml) with **Run workflow** on `main`. Later source version tags are picked up by the six-hour schedule. The computer does not need to stay on. GitHub Actions on public repositories with standard GitHub hosted runners are free under GitHub's published pricing rules.
+
+**Upgrade from v1.2.8:** The installed v1.2.8 trusts only the previous signing key and cannot authenticate v1.2.9 signed by the new key. Install v1.2.9 manually from its ZIP, keeping the existing `data` folder beside `CaseVector.exe`. Once v1.2.9 is installed, later updates signed with the new key can use the automatic updater.

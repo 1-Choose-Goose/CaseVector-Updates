@@ -11,9 +11,9 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 ASSET = "CaseVector-Windows-x64.zip"
-KEY_ID = "2026-11b"
-# Existing client trust anchor. A different private key cannot publish an update.
-PUBLIC_KEY = "UuVeLNLUL5D3lxHg4qN57zq4/IMsnJ8jx1r6dWf9rhM="
+KEY_ID = "2026-11c"
+# Pinned trust anchor for the new signing key. No private key is stored here.
+PUBLIC_KEY = "ufqe3s9HOiCtNj4enjSCw/W/IfJ7iu86FSWdJYH5xkI="
 EXPECTED = {ASSET, ASSET + ".sha256", "release-manifest.json", "release-manifest.sig", "release-notes.md", "CaseVector"}
 FORBIDDEN = {".db", ".sqlite", ".sqlite3", ".xlsx", ".xls", ".csv", ".py", ".pyc", ".pyo", ".env"}
 
