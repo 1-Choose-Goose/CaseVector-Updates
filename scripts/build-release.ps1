@@ -53,23 +53,7 @@ try {
         try {
             if (Test-Path -LiteralPath $errorLog) {
                 $testOutput = Get-Content -LiteralPath $errorLog -Raw -ErrorAction Stop
-                $completedTests = [regex]::Matches($testOutput, '(?m)^test_[^\r\n]+ \.\.\. (?:ok|skipped[^\r\n]*)
-    }
-    $process.Refresh()
-    if ($process.ExitCode -ne 0) { throw 'Private build or tests failed.' }
-    Write-Host 'Private build and tests completed.'
-
-    & python tools/release_notes.py "release/$Tag/release-notes.md" *> $buildLog
-    if ($LASTEXITCODE -ne 0) { throw 'Release notes preparation failed.' }
-}
-catch {
-    throw 'Private source build or tests failed. Output is withheld from public logs.'
-}
-finally {
-    Pop-Location
-    Remove-Item -LiteralPath $buildLog, $errorLog -ErrorAction SilentlyContinue
-}
-).Count
+                $completedTests = [regex]::Matches($testOutput, '(?m)^test_[^\r\n]+ \.\.\. (?:ok|skipped[^\r\n]*)$').Count
             }
         } catch {
             $completedTests = 0
