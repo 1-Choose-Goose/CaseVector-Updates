@@ -19,10 +19,17 @@ try {
     $minutes = 0
     while (-not $process.WaitForExit(60000)) {
         $minutes++
-        $stage = 'preparing dependencies or running tests'
+        $stage = 'starting private build'
         $buildRoots = @(Get-ChildItem -LiteralPath $env:TEMP -Directory -Filter 'casevector-build-*' -ErrorAction SilentlyContinue)
         if ($buildRoots.Count -gt 0) {
             $buildRoot = $buildRoots | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            $stage = 'creating Python environment'
+            if (Test-Path -LiteralPath (Join-Path $buildRoot.FullName 'venv\Scripts\python.exe')) {
+                $stage = 'installing dependencies'
+            }
+            if (Test-Path -LiteralPath (Join-Path $buildRoot.FullName 'venv\Scripts\pyinstaller.exe')) {
+                $stage = 'running tests'
+            }
             if (Test-Path -LiteralPath (Join-Path $buildRoot.FullName 'work\updater')) {
                 $stage = 'packaging updater'
             }
