@@ -17,11 +17,14 @@ $repositoryText = Get-Content -LiteralPath (Join-Path $source 'version.py') -Raw
 if ($repositoryText -notmatch '(?m)^REPOSITORY\s*=\s*["'']1-Choose-Goose/CaseVector-Updates["'']') {
     throw 'The application update channel changed.'
 }
-$existing = & gh release view $tag --repo 1-Choose-Goose/CaseVector-Updates --json tagName --jq '.tagName' 2>$null
+$existing = & gh release view $tag --repo 1-Choose-Goose/CaseVector-Updates --json tagName,isDraft 2>$null
 if ($LASTEXITCODE -eq 0) {
-    "publish=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-    Write-Host "Release $tag already exists; nothing to publish."
-    exit 0
+    $release = $existing | ConvertFrom-Json
+    if (-not $release.isDraft) {
+        "publish=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+        Write-Host "Release $tag already exists; nothing to publish."
+        exit 0
+    }
 }
 "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 "publish=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
